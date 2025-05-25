@@ -81,7 +81,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen bg-background font-sans antialiased cursor-none overflow-x-hidden">
+      <body className="min-h-screen bg-background font-sans antialiased overflow-x-hidden">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
           <ToastProvider>
             <LoadingScreen />

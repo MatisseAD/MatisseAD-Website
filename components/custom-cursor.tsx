@@ -1,6 +1,6 @@
 "use client"
 
+// Custom cursor component disabled - using default browser cursor
 export function CustomCursor() {
-  // Return null to use default cursor
   return null
 }

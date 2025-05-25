@@ -52,16 +52,9 @@
 @layer base {
   * {
     @apply border-border;
-    cursor: none !important;
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300;
-  }
-
-  button,
-  a,
-  [role="button"] {
-    cursor: none !important;
   }
 }
 
@@ -144,7 +137,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Hide default scrollbar but keep functionality */
+/* Default scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -253,8 +246,38 @@ html {
   .no-print {
     display: none !important;
   }
+}
 
-  * {
-    cursor: auto !important;
-  }
+/* Ensure default cursor behavior for all interactive elements */
+button,
+a,
+input,
+textarea,
+select,
+[role="button"],
+[tabindex]:not([tabindex="-1"]) {
+  cursor: pointer;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+textarea {
+  cursor: text;
+}
+
+/* Default cursor for non-interactive elements */
+body,
+div,
+span,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  cursor: default;
 }
