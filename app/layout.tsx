@@ -82,7 +82,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased cursor-none overflow-x-hidden">
-        <ThemeProvider defaultTheme="system" storageKey="minecraft-dev-theme">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
           <ToastProvider>
             <LoadingScreen />
             <ParticleBackground />
