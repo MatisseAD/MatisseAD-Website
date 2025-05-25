@@ -20,21 +20,46 @@ import {
   RefreshCw,
   GitFork,
   Eye,
+  AlertTriangle,
 } from "lucide-react"
 import { useProfileData } from "@/hooks/use-profile-data"
 import { ProfileSkeleton } from "@/components/loading-skeleton"
+import { ApiStatusIndicator } from "@/components/api-status-indicator"
+import { motion } from "framer-motion"
+import { Timeline } from "@/components/timeline"
+import { useToast } from "@/components/toast-provider"
+import { fadeInUp, staggerContainer } from "@/lib/animations"
 
 export default function Component() {
-  const { githubUser, githubRepos, modrinthUser, modrinthProjects, loading, error, refetch } = useProfileData()
+  const {
+    githubUser,
+    githubRepos,
+    modrinthUser,
+    modrinthProjects,
+    loading,
+    error,
+    refetch,
+    apiStatus,
+    isRateLimited,
+    lastUpdated,
+    retryCount,
+  } = useProfileData()
+
+  const { addToast } = useToast()
 
   if (loading) {
     return <ProfileSkeleton />
   }
 
-  if (error) {
+  // Show warning if some data failed to load but don't block the entire UI
+  const hasPartialData = githubUser || modrinthUser || githubRepos.length > 0 || modrinthProjects.length > 0
+  const showWarning = !hasPartialData && !loading
+
+  if (error && !hasPartialData) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <Alert variant="destructive" className="theme-transition">
+          <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             Failed to load profile data: {error}
             <Button variant="outline" size="sm" onClick={refetch} className="ml-2">
@@ -55,375 +80,410 @@ export default function Component() {
   const averageRating = safeModrinthProjects.length > 0 ? 4.7 : 0 // Modrinth doesn't provide ratings in API
   const totalStars = safeGithubRepos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0)
 
+  const handleRefresh = () => {
+    refetch()
+    addToast({
+      type: "info",
+      title: "Refreshing data...",
+      description: "Fetching latest information from GitHub and Modrinth",
+    })
+  }
+
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6 theme-transition">
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="max-w-4xl mx-auto p-6 space-y-6 theme-transition"
+    >
+      {(showWarning || isRateLimited) && (
+        <Alert className="theme-transition">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {isRateLimited
+              ? "Some APIs are rate limited. Data may be incomplete. Please try again later."
+              : "Some profile data couldn't be loaded. This might be due to API rate limits or network issues."}
+            <Button variant="outline" size="sm" onClick={refetch} className="ml-2">
+              <RefreshCw className="w-4 h-4 mr-1" />
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header Card */}
-      <Card className="theme-transition animate-fade-in">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            <Avatar className="w-24 h-24 ring-2 ring-border theme-transition">
-              <AvatarImage
-                src={githubUser?.avatar_url || modrinthUser?.avatar_url}
-                alt={githubUser?.login || modrinthUser?.username}
-              />
-              <AvatarFallback className="text-2xl bg-muted theme-transition">
-                {(githubUser?.name || githubUser?.login || modrinthUser?.username || "U").charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-3">
-              <div>
-                <h1 className="text-3xl font-bold theme-transition">
-                  {githubUser?.name || githubUser?.login || modrinthUser?.username || "Developer"}
-                </h1>
-                <p className="text-xl text-muted-foreground theme-transition">Minecraft Plugin Developer</p>
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground theme-transition">
-                {githubUser?.location && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {githubUser.location}
-                  </div>
-                )}
-                {githubUser?.created_at && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    Since {new Date(githubUser.created_at).getFullYear()}
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  {totalDownloads.toLocaleString()}+ downloads
+      <motion.div variants={fadeInUp}>
+        <Card className="theme-transition animate-fade-in">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <Avatar className="w-24 h-24 ring-2 ring-border theme-transition">
+                <AvatarImage
+                  src={githubUser?.avatar_url || modrinthUser?.avatar_url}
+                  alt={githubUser?.login || modrinthUser?.username}
+                />
+                <AvatarFallback className="text-2xl bg-muted theme-transition">
+                  {(githubUser?.name || githubUser?.login || modrinthUser?.username || "M").charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h1 className="text-3xl font-bold theme-transition">
+                    {githubUser?.name || githubUser?.login || modrinthUser?.username || "MatisseAD"}
+                  </h1>
+                  <p className="text-xl text-muted-foreground theme-transition">Minecraft Plugin Developer</p>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" className="theme-transition">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Contact
-                </Button>
-                {githubUser?.login && (
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground theme-transition">
+                  {githubUser?.location && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {githubUser.location}
+                    </div>
+                  )}
+                  {githubUser?.created_at && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      Since {new Date(githubUser.created_at).getFullYear()}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    {totalDownloads.toLocaleString()}+ downloads
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" className="theme-transition">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Contact
+                  </Button>
                   <Button variant="outline" size="sm" asChild className="theme-transition">
-                    <a href={`https://github.com/${githubUser.login}`} target="_blank" rel="noopener noreferrer">
+                    <a href="https://github.com/MatisseAD" target="_blank" rel="noopener noreferrer">
                       <Github className="w-4 h-4 mr-2" />
                       GitHub
                     </a>
                   </Button>
-                )}
-                {modrinthUser?.username && (
                   <Button variant="outline" size="sm" asChild className="theme-transition">
-                    <a
-                      href={`https://modrinth.com/user/${modrinthUser.username}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a href="https://modrinth.com/user/Matisse" target="_blank" rel="noopener noreferrer">
                       <Globe className="w-4 h-4 mr-2" />
                       Modrinth
                     </a>
                   </Button>
-                )}
+                </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground leading-relaxed theme-transition">
-            {githubUser?.bio ||
-              modrinthUser?.bio ||
-              "Passionate Java developer specializing in Minecraft plugin development. Creating innovative plugins that enhance gameplay experiences for thousands of players worldwide."}
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* GitHub Stats */}
-        <Card className="theme-transition animate-fade-in">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 theme-transition">
-              <Github className="w-5 h-5" />
-              GitHub Stats
-            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{githubUser?.public_repos || 0}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Repositories</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{totalStars}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Total Stars</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{githubUser?.followers || 0}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Followers</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{githubUser?.following || 0}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Following</div>
-              </div>
-            </div>
-
-            <Separator className="theme-transition" />
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm theme-transition">Recent Repositories</h4>
-              <div className="space-y-2 text-sm">
-                {safeGithubRepos.length > 0 ? (
-                  safeGithubRepos.slice(0, 3).map((repo) => (
-                    <div key={repo.id} className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-muted-foreground truncate theme-transition">{repo.name}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-muted-foreground text-sm theme-transition">No repositories found</div>
-                )}
-              </div>
-            </div>
+          <CardContent>
+            <p className="text-muted-foreground leading-relaxed theme-transition">
+              {githubUser?.bio ||
+                modrinthUser?.bio ||
+                "Passionate Java developer specializing in Minecraft plugin development. Creating innovative plugins that enhance gameplay experiences for thousands of players worldwide."}
+            </p>
           </CardContent>
         </Card>
+      </motion.div>
 
-        {/* Modrinth Stats */}
-        <Card className="theme-transition animate-fade-in">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 theme-transition">
-              <Zap className="w-5 h-5" />
-              Modrinth Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{safeModrinthProjects.length}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Projects</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">
-                  {totalDownloads.toLocaleString()}
+      <motion.div variants={fadeInUp}>
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* GitHub Stats */}
+          <Card className="theme-transition animate-fade-in">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 theme-transition">
+                <Github className="w-5 h-5" />
+                GitHub Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">
+                    {githubUser?.public_repos || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground theme-transition">Repositories</div>
                 </div>
-                <div className="text-xs text-muted-foreground theme-transition">Downloads</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">{averageRating}</div>
-                <div className="text-xs text-muted-foreground theme-transition">Avg Rating</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-primary theme-transition">
-                  {safeModrinthProjects.reduce((sum, project) => sum + (project.followers || 0), 0)}
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">{totalStars}</div>
+                  <div className="text-xs text-muted-foreground theme-transition">Total Stars</div>
                 </div>
-                <div className="text-xs text-muted-foreground theme-transition">Followers</div>
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">{githubUser?.followers || 0}</div>
+                  <div className="text-xs text-muted-foreground theme-transition">Followers</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">{githubUser?.following || 0}</div>
+                  <div className="text-xs text-muted-foreground theme-transition">Following</div>
+                </div>
               </div>
-            </div>
 
-            <Separator className="theme-transition" />
+              <Separator className="theme-transition" />
 
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm theme-transition">Recent Projects</h4>
-              <div className="space-y-2 text-sm">
-                {safeModrinthProjects.length > 0 ? (
-                  safeModrinthProjects.slice(0, 3).map((project) => (
-                    <div key={project.id} className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-muted-foreground truncate theme-transition">{project.title}</span>
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm theme-transition">Recent Repositories</h4>
+                <div className="space-y-2 text-sm">
+                  {safeGithubRepos.length > 0 ? (
+                    safeGithubRepos.slice(0, 3).map((repo) => (
+                      <div key={repo.id} className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-muted-foreground truncate theme-transition">{repo.name}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-muted-foreground text-sm theme-transition">
+                      {githubUser ? "No repositories found" : "GitHub data unavailable"}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-muted-foreground text-sm theme-transition">No projects found</div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Quick Actions */}
-        <Card className="theme-transition animate-fade-in">
-          <CardHeader>
-            <CardTitle className="theme-transition">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start theme-transition" onClick={refetch}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh Data
-            </Button>
-            {githubUser?.login && (
+          {/* Modrinth Stats */}
+          <Card className="theme-transition animate-fade-in">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 theme-transition">
+                <Zap className="w-5 h-5" />
+                Modrinth Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">{safeModrinthProjects.length}</div>
+                  <div className="text-xs text-muted-foreground theme-transition">Projects</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">
+                    {totalDownloads.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground theme-transition">Downloads</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">{averageRating}</div>
+                  <div className="text-xs text-muted-foreground theme-transition">Avg Rating</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary theme-transition">
+                    {safeModrinthProjects.reduce((sum, project) => sum + (project.followers || 0), 0)}
+                  </div>
+                  <div className="text-xs text-muted-foreground theme-transition">Followers</div>
+                </div>
+              </div>
+
+              <Separator className="theme-transition" />
+
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm theme-transition">Recent Projects</h4>
+                <div className="space-y-2 text-sm">
+                  {safeModrinthProjects.length > 0 ? (
+                    safeModrinthProjects.slice(0, 3).map((project) => (
+                      <div key={project.id} className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-muted-foreground truncate theme-transition">{project.title}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-muted-foreground text-sm theme-transition">
+                      {modrinthUser ? "No projects found" : "Modrinth data unavailable"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="theme-transition animate-fade-in">
+            <CardHeader>
+              <CardTitle className="theme-transition">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full justify-start theme-transition" onClick={handleRefresh}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Data
+              </Button>
               <Button variant="outline" className="w-full justify-start theme-transition" asChild>
-                <a href={`https://github.com/${githubUser.login}`} target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/MatisseAD" target="_blank" rel="noopener noreferrer">
                   <Github className="w-4 h-4 mr-2" />
                   GitHub Profile
                 </a>
               </Button>
-            )}
-            {modrinthUser?.username && (
               <Button variant="outline" className="w-full justify-start theme-transition" asChild>
-                <a
-                  href={`https://modrinth.com/user/${modrinthUser.username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href="https://modrinth.com/user/Matisse" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Modrinth Profile
                 </a>
               </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <ApiStatusIndicator apiStatus={apiStatus} lastUpdated={lastUpdated} retryCount={retryCount} />
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
 
       {/* GitHub Repositories */}
-      <Card className="theme-transition animate-fade-in">
-        <CardHeader>
-          <CardTitle className="text-2xl flex items-center gap-2 theme-transition">
-            <Github className="w-6 h-6" />
-            GitHub Repositories
-          </CardTitle>
-          <CardDescription className="theme-transition">Recent public repositories from GitHub</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {safeGithubRepos.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {safeGithubRepos.slice(0, 6).map((repo) => (
-                <Card key={repo.id} className="border-2 theme-transition hover:shadow-lg">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg theme-transition">{repo.name}</CardTitle>
-                        <CardDescription className="text-sm theme-transition">
-                          {repo.language || "Unknown"}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground theme-transition">
-                      {repo.description || "No description available"}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground theme-transition">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3" />
-                        {repo.stargazers_count || 0}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <GitFork className="w-3 h-3" />
-                        {repo.forks_count || 0}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        Updated {new Date(repo.updated_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {(repo.topics || []).slice(0, 3).map((topic) => (
-                        <Badge key={topic} variant="outline" className="text-xs theme-transition">
-                          {topic}
-                        </Badge>
-                      ))}
-                    </div>
-                    <Button size="sm" className="w-full theme-transition" asChild>
-                      <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        View Repository
-                      </a>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground theme-transition">
-              <Github className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No repositories found or unable to load GitHub data</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modrinth Projects */}
-      <Card className="theme-transition animate-fade-in">
-        <CardHeader>
-          <CardTitle className="text-2xl theme-transition">Modrinth Projects</CardTitle>
-          <CardDescription className="theme-transition">
-            Minecraft plugins and mods published on Modrinth
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {safeModrinthProjects.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {safeModrinthProjects.map((project) => (
-                <Card key={project.id} className="border-2 theme-transition hover:shadow-lg">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {project.icon_url && (
-                          <img
-                            src={project.icon_url || "/placeholder.svg"}
-                            alt={project.title}
-                            className="w-8 h-8 rounded"
-                          />
-                        )}
+      <motion.div variants={fadeInUp}>
+        <Card className="theme-transition animate-fade-in">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center gap-2 theme-transition">
+              <Github className="w-6 h-6" />
+              GitHub Repositories
+            </CardTitle>
+            <CardDescription className="theme-transition">Recent public repositories from GitHub</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {safeGithubRepos.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {safeGithubRepos.slice(0, 6).map((repo) => (
+                  <Card key={repo.id} className="border-2 theme-transition hover:shadow-lg">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
                         <div>
-                          <CardTitle className="text-lg theme-transition">{project.title}</CardTitle>
+                          <CardTitle className="text-lg theme-transition">{repo.name}</CardTitle>
                           <CardDescription className="text-sm theme-transition">
-                            {(project.categories || []).join(", ") || "No categories"}
+                            {repo.language || "Unknown"}
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge
-                        className={`theme-transition ${
-                          project.status === "approved"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                        }`}
-                      >
-                        {project.status || "unknown"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground theme-transition">
-                      {project.description || "No description available"}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground theme-transition">
-                      <div className="flex items-center gap-1">
-                        <Download className="w-3 h-3" />
-                        {(project.downloads || 0).toLocaleString()}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground theme-transition">
+                        {repo.description || "No description available"}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground theme-transition">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3" />
+                          {repo.stargazers_count || 0}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <GitFork className="w-3 h-3" />
+                          {repo.forks_count || 0}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          Updated {new Date(repo.updated_at).toLocaleDateString()}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {project.followers || 0}
+                      <div className="flex gap-1 flex-wrap">
+                        {(repo.topics || []).slice(0, 3).map((topic) => (
+                          <Badge key={topic} variant="outline" className="text-xs theme-transition">
+                            {topic}
+                          </Badge>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(project.updated).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {(project.loaders || []).map((loader) => (
-                        <Badge key={loader} variant="outline" className="text-xs theme-transition">
-                          {loader}
+                      <Button size="sm" className="w-full theme-transition" asChild>
+                        <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          View Repository
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground theme-transition">
+                <Github className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>{githubUser ? "No repositories found" : "Unable to load GitHub data"}</p>
+                <p className="text-sm mt-2">This might be due to API rate limits or network issues.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Modrinth Projects */}
+      <motion.div variants={fadeInUp}>
+        <Card className="theme-transition animate-fade-in">
+          <CardHeader>
+            <CardTitle className="text-2xl theme-transition">Modrinth Projects</CardTitle>
+            <CardDescription className="theme-transition">
+              Minecraft plugins and mods published on Modrinth
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {safeModrinthProjects.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {safeModrinthProjects.map((project) => (
+                  <Card key={project.id} className="border-2 theme-transition hover:shadow-lg">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          {project.icon_url && (
+                            <img
+                              src={project.icon_url || "/placeholder.svg"}
+                              alt={project.title}
+                              className="w-8 h-8 rounded"
+                            />
+                          )}
+                          <div>
+                            <CardTitle className="text-lg theme-transition">{project.title}</CardTitle>
+                            <CardDescription className="text-sm theme-transition">
+                              {(project.categories || []).join(", ") || "No categories"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Badge
+                          className={`theme-transition ${
+                            project.status === "approved"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                          }`}
+                        >
+                          {project.status || "unknown"}
                         </Badge>
-                      ))}
-                    </div>
-                    <Button size="sm" className="w-full theme-transition" asChild>
-                      <a
-                        href={`https://modrinth.com/project/${project.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        View Project
-                      </a>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground theme-transition">
-              <Zap className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No projects found or unable to load Modrinth data</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground theme-transition">
+                        {project.description || "No description available"}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground theme-transition">
+                        <div className="flex items-center gap-1">
+                          <Download className="w-3 h-3" />
+                          {(project.downloads || 0).toLocaleString()}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {project.followers || 0}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(project.updated).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        {(project.loaders || []).map((loader) => (
+                          <Badge key={loader} variant="outline" className="text-xs theme-transition">
+                            {loader}
+                          </Badge>
+                        ))}
+                      </div>
+                      <Button size="sm" className="w-full theme-transition" asChild>
+                        <a
+                          href={`https://modrinth.com/project/${project.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          View Project
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground theme-transition">
+                <Zap className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>{modrinthUser ? "No projects found" : "Unable to load Modrinth data"}</p>
+                <p className="text-sm mt-2">This might be due to API rate limits or network issues.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Timeline */}
+      <motion.div variants={fadeInUp}>
+        <Timeline />
+      </motion.div>
+    </motion.div>
   )
 }
