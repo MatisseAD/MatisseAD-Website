@@ -5,8 +5,11 @@ export async function GET() {
   try {
     const user = await fetchModrinthUser("Matisse")
     const projects = await fetchModrinthProjects(user.id)
-    return NextResponse.json(projects)
+    // Ensure we always return an array
+    return NextResponse.json(Array.isArray(projects) ? projects : [])
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch Modrinth projects" }, { status: 500 })
+    console.error("Modrinth projects API error:", error)
+    // Return empty array on error instead of error object
+    return NextResponse.json([])
   }
 }

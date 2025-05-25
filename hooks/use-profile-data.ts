@@ -26,33 +26,40 @@ export function useProfileData() {
     try {
       setData((prev) => ({ ...prev, loading: true, error: null }))
 
-      // Fetch GitHub data
+      // Fetch GitHub data with error handling
       const [githubUserResponse, githubReposResponse] = await Promise.all([
-        fetch("/api/github/user"),
-        fetch("/api/github/repos"),
+        fetch("/api/github/user").catch(() => ({ ok: false, json: () => Promise.resolve(null) })),
+        fetch("/api/github/repos").catch(() => ({ ok: false, json: () => Promise.resolve([]) })),
       ])
 
-      const githubUser = await githubUserResponse.json()
-      const githubRepos = await githubReposResponse.json()
+      const githubUser = githubUserResponse.ok ? await githubUserResponse.json() : null
+      const githubReposData = githubReposResponse.ok ? await githubReposResponse.json() : []
 
-      // Fetch Modrinth data
+      // Ensure githubRepos is always an array
+      const githubRepos = Array.isArray(githubReposData) ? githubReposData : []
+
+      // Fetch Modrinth data with error handling
       const [modrinthUserResponse, modrinthProjectsResponse] = await Promise.all([
-        fetch("/api/modrinth/user"),
-        fetch("/api/modrinth/projects"),
+        fetch("/api/modrinth/user").catch(() => ({ ok: false, json: () => Promise.resolve(null) })),
+        fetch("/api/modrinth/projects").catch(() => ({ ok: false, json: () => Promise.resolve([]) })),
       ])
 
-      const modrinthUser = await modrinthUserResponse.json()
-      const modrinthProjects = await modrinthProjectsResponse.json()
+      const modrinthUser = modrinthUserResponse.ok ? await modrinthUserResponse.json() : null
+      const modrinthProjectsData = modrinthProjectsResponse.ok ? await modrinthProjectsResponse.json() : []
+
+      // Ensure modrinthProjects is always an array
+      const modrinthProjects = Array.isArray(modrinthProjectsData) ? modrinthProjectsData : []
 
       setData({
-        githubUser,
+        githubUser: githubUser?.error ? null : githubUser,
         githubRepos,
-        modrinthUser,
+        modrinthUser: modrinthUser?.error ? null : modrinthUser,
         modrinthProjects,
         loading: false,
         error: null,
       })
     } catch (error) {
+      console.error("Error fetching profile data:", error)
       setData((prev) => ({
         ...prev,
         loading: false,

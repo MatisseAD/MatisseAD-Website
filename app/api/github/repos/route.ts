@@ -4,8 +4,11 @@ import { fetchGitHubRepos } from "@/lib/api"
 export async function GET() {
   try {
     const repos = await fetchGitHubRepos("MatisseAD")
-    return NextResponse.json(repos)
+    // Ensure we always return an array
+    return NextResponse.json(Array.isArray(repos) ? repos : [])
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch GitHub repositories" }, { status: 500 })
+    console.error("GitHub repos API error:", error)
+    // Return empty array on error instead of error object
+    return NextResponse.json([])
   }
 }
