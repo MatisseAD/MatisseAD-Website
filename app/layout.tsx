@@ -4,7 +4,9 @@ import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { LanguageProvider } from "@/components/language-provider"
 import { FloatingThemeToggle } from "@/components/floating-theme-toggle"
+import { LanguageToggle } from "@/components/language-toggle"
 import { LoadingScreen } from "@/components/loading-screen"
 import { CustomCursor } from "@/components/custom-cursor"
 import { ScrollProgress } from "@/components/scroll-progress"
@@ -82,19 +84,22 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background font-sans antialiased overflow-x-hidden">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
-          <ToastProvider>
-            <LoadingScreen />
-            <ParticleBackground />
-            <ScrollProgress />
-            <CustomCursor />
-            <StickyNav />
-            <Suspense>{children}</Suspense>
-            <FloatingThemeToggle />
-            <BackToTop />
-            <Terminal />
-            <EasterEgg />
-            <DeploymentInfo />
-          </ToastProvider>
+          <LanguageProvider>
+            <ToastProvider>
+              <LoadingScreen />
+              <ParticleBackground />
+              <ScrollProgress />
+              <CustomCursor />
+              <StickyNav />
+              <Suspense>{children}</Suspense>
+              <FloatingThemeToggle />
+              <LanguageToggle />
+              <BackToTop />
+              <Terminal />
+              <EasterEgg />
+              <DeploymentInfo />
+            </ToastProvider>
+          </LanguageProvider>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />

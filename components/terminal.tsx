@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { TerminalIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { useLanguage } from "@/components/language-provider"
+import { RocketAnimation } from "@/components/rocket-animation"
+import { useRouter } from "next/navigation"
 
 interface Command {
   input: string
@@ -19,8 +22,11 @@ export function Terminal() {
   const [input, setInput] = useState("")
   const [history, setHistory] = useState<Command[]>([])
   const [currentPath, setCurrentPath] = useState("~/matisse-dev")
+  const [showRocket, setShowRocket] = useState(false) // Ensure this starts as false
   const inputRef = useRef<HTMLInputElement>(null)
   const terminalRef = useRef<HTMLDivElement>(null)
+  const { language } = useLanguage()
+  const router = useRouter()
 
   const commands = {
     help: {
@@ -33,6 +39,9 @@ export function Terminal() {
         "  contact       - Contact information",
         "  github        - Open GitHub profile",
         "  modrinth      - Open Modrinth profile",
+        "  hack          - Launch rocket animation",
+        "  game          - Play Minesweeper",
+        "  lang          - Language information",
         "  clear         - Clear terminal",
         "  exit          - Close terminal",
       ],
@@ -109,6 +118,39 @@ export function Terminal() {
       output: ["Opening Modrinth profile..."],
       action: () => window.open("https://modrinth.com/user/Matisse", "_blank"),
     },
+    hack: {
+      output: [
+        "🚀 Initializing hack sequence...",
+        "🔓 Accessing mainframe...",
+        "⚡ Bypassing security protocols...",
+        "🎯 Launching payload...",
+        "",
+        "⚠️  WARNING: Rocket incoming!",
+      ],
+      action: () => {
+        // Only trigger rocket after delay
+        setTimeout(() => {
+          setShowRocket(true)
+          // Auto-hide rocket after animation
+          setTimeout(() => setShowRocket(false), 5000)
+        }, 2000)
+      },
+    },
+    game: {
+      output: ["🎮 Launching Minesweeper game..."],
+      action: () => {
+        setTimeout(() => {
+          router.push("/game")
+        }, 1000)
+      },
+    },
+    lang: {
+      output: [
+        `Current language: ${language === "fr" ? "Français" : "English"}`,
+        "Available languages: English, Français",
+        "Use the language toggle button to switch languages.",
+      ],
+    },
     clear: {
       output: [],
       action: () => setHistory([]),
@@ -136,7 +178,6 @@ export function Terminal() {
         command.action()
       }
     } else if (trimmedCmd === "") {
-      // Empty command, just add to history
       setHistory((prev) => [...prev, { input: cmd, output: [], timestamp: new Date() }])
     } else {
       const newCommand: Command = {
@@ -180,6 +221,9 @@ export function Terminal() {
         <TerminalIcon className="h-5 w-5" />
       </Button>
 
+      {/* Rocket Animation - only shows when showRocket is true */}
+      <RocketAnimation isVisible={showRocket} />
+
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -197,7 +241,6 @@ export function Terminal() {
               className="w-full max-w-4xl h-96 max-h-[80vh]"
             >
               <Card className="h-full bg-black/90 border-green-500/50 text-green-400 font-mono overflow-hidden">
-                {/* Terminal Header */}
                 <div className="flex items-center justify-between p-3 border-b border-green-500/30 bg-black/50">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
@@ -217,13 +260,11 @@ export function Terminal() {
                   </Button>
                 </div>
 
-                {/* Terminal Content */}
                 <div
                   ref={terminalRef}
                   className="flex-1 p-4 overflow-y-auto h-full bg-black/80"
                   style={{ height: "calc(100% - 60px)" }}
                 >
-                  {/* Welcome Message */}
                   {history.length === 0 && (
                     <div className="mb-4">
                       <p className="text-green-300">Welcome to MatisseAD Terminal v1.0</p>
@@ -232,7 +273,6 @@ export function Terminal() {
                     </div>
                   )}
 
-                  {/* Command History */}
                   {history.map((cmd, index) => (
                     <div key={index} className="mb-2">
                       <div className="flex items-center gap-2">
@@ -248,7 +288,6 @@ export function Terminal() {
                     </div>
                   ))}
 
-                  {/* Current Input */}
                   <div className="flex items-center gap-2">
                     <span className="text-green-300">{currentPath}</span>
                     <span className="text-green-400">$</span>
