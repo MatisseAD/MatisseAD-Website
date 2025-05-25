@@ -1,15 +1,10 @@
-# Sample workflow for building and deploying a Next.js site to GitHub Pages
-#
-# To get started with Next.js see: https://nextjs.org/docs/getting-started
-#
-name: Deploy Next.js site to Pages
+name: Deploy to GitHub Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -29,56 +24,119 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: 📋 Checkout repository
         uses: actions/checkout@v4
-      - name: Detect package manager
+        with:
+          fetch-depth: 0
+
+      - name: 📊 Detect package manager
         id: detect-package-manager
         run: |
           if [ -f "${{ github.workspace }}/yarn.lock" ]; then
             echo "manager=yarn" >> $GITHUB_OUTPUT
             echo "command=install" >> $GITHUB_OUTPUT
             echo "runner=yarn" >> $GITHUB_OUTPUT
-            exit 0
-          elif [ -f "${{ github.workspace }}/package.json" ]; then
+            echo "lockfile=yarn.lock" >> $GITHUB_OUTPUT
+            echo "cache-dependency-path=yarn.lock" >> $GITHUB_OUTPUT
+          elif [ -f "${{ github.workspace }}/package-lock.json" ]; then
             echo "manager=npm" >> $GITHUB_OUTPUT
             echo "command=ci" >> $GITHUB_OUTPUT
             echo "runner=npx --no-install" >> $GITHUB_OUTPUT
-            exit 0
+            echo "lockfile=package-lock.json" >> $GITHUB_OUTPUT
+            echo "cache-dependency-path=package-lock.json" >> $GITHUB_OUTPUT
+          elif [ -f "${{ github.workspace }}/package.json" ]; then
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=npx --no-install" >> $GITHUB_OUTPUT
+            echo "lockfile=package-lock.json" >> $GITHUB_OUTPUT
+            echo "cache-dependency-path=package.json" >> $GITHUB_OUTPUT
           else
-            echo "Unable to determine package manager"
+            echo "Unable to determine package manager - no package.json found"
             exit 1
           fi
-      - name: Setup Node
+
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: ${{ steps.detect-package-manager.outputs.manager }}
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+          cache-dependency-path: ${{ steps.detect-package-manager.outputs.cache-dependency-path }}
+
+      - name: 🔧 Setup Pages
+        uses: actions/configure-pages@v4
         with:
           # Automatically inject basePath in your Next.js configuration file and disable
           # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
           #
           # You may remove this line if you want to manage the configuration yourself.
           static_site_generator: next
-      - name: Restore cache
+
+      - name: 📦 Restore cache
         uses: actions/cache@v4
         with:
           path: |
             .next/cache
+            ~/.npm
+            ~/.yarn
+            node_modules
           # Generate a new cache whenever packages or source files change.
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/package.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
           # If source files changed but packages didn't, rebuild from a prior cache.
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
-      - name: Install dependencies
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/package.json') }}-
+
+      - name: 📥 Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
-      - name: Build with Next.js
+        env:
+          # Increase Node.js memory limit for large builds
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: 🔍 Lint code
+        run: ${{ steps.detect-package-manager.outputs.runner }} next lint
+        continue-on-error: true
+
+      - name: 🧪 Run tests
+        run: |
+          if [ -f "package.json" ] && grep -q '"test"' package.json; then
+            ${{ steps.detect-package-manager.outputs.runner }} test --passWithNoTests
+          else
+            echo "No tests found, skipping test step"
+          fi
+        continue-on-error: true
+
+      - name: 🏗️ Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
-      - name: Upload artifact
+        env:
+          # Environment variables for build
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+          # Custom environment variables
+          CUSTOM_KEY: ${{ secrets.CUSTOM_KEY }}
+          # Add any additional environment variables here
+          # NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📤 Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
+
+      - name: 📊 Build summary
+        run: |
+          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js Version**: $(node --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package Manager**: ${{ steps.detect-package-manager.outputs.manager }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Time**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if out directory exists and show size
+          if [ -d "./out" ]; then
+            echo "- **Output Size**: $(du -sh ./out | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Files Generated**: $(find ./out -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # Deployment job
   deploy:
@@ -87,7 +145,37 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Deploy to GitHub Pages
+      - name: 🚀 Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: 📊 Deployment summary
+        run: |
+          echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed At**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: github-pages" >> $GITHUB_STEP_SUMMARY
+
+  # Notification job (optional)
+  notify:
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: 📢 Notify deployment status
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "🌐 Site is live at: ${{ needs.deploy.outputs.page_url }}"
+          elif [ "${{ needs.deploy.result }}" == "failure" ]; then
+            echo "❌ Deployment failed!"
+            echo "Please check the logs for more information."
+          elif [ "${{ needs.build.result }}" == "failure" ]; then
+            echo "❌ Build failed!"
+            echo "Please check the build logs for more information."
+          else
+            echo "⚠️ Deployment status: ${{ needs.deploy.result }}"
+          fi
