@@ -30,7 +30,6 @@ import { Timeline } from "@/components/timeline"
 import { useToast } from "@/components/toast-provider"
 import { fadeInUp, staggerContainer } from "@/lib/animations"
 import { VisitorMap } from "@/components/widgets/visitor-map"
-import { DiscordWidget } from "@/components/widgets/discord-widget"
 import { GitHubStats } from "@/components/widgets/github-stats"
 import { CommentsSection } from "@/components/widgets/comments-section"
 import { trackUserInteraction } from "@/lib/monitoring"
@@ -357,21 +356,17 @@ export default function Component() {
               </Card>
             </motion.div>
 
-            {/* Visitor Map */}
+            {/* Enhanced Visitor Map */}
             <motion.div variants={fadeInUp}>
               <VisitorMap />
             </motion.div>
 
-            {/* Discord Widget */}
-            <motion.div variants={fadeInUp}>
-              <DiscordWidget />
-            </motion.div>
-
-            {/* Add these new components */}
+            {/* Real-time Updates */}
             <motion.div variants={fadeInUp}>
               <RealTimeUpdates />
             </motion.div>
 
+            {/* Performance Monitor */}
             <motion.div variants={fadeInUp}>
               <PerformanceMonitor />
             </motion.div>
@@ -407,7 +402,7 @@ export default function Component() {
             </Card>
           </motion.div>
 
-          {/* Add Advanced Analytics after Quick Actions */}
+          {/* Enhanced Advanced Analytics */}
           <motion.div variants={fadeInUp} className="mt-8">
             <AdvancedAnalytics />
           </motion.div>

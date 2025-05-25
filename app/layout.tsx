@@ -14,7 +14,6 @@ import { EasterEgg } from "@/components/easter-egg"
 import { ToastProvider } from "@/components/toast-provider"
 import { StickyNav } from "@/components/navigation/sticky-nav"
 import { ParticleBackground } from "@/components/effects/particle-background"
-import { MusicPlayer } from "@/components/widgets/music-player"
 import { Suspense } from "react"
 import { DeploymentInfo } from "@/components/widgets/deployment-info"
 
@@ -92,7 +91,6 @@ export default function RootLayout({
             <Suspense>{children}</Suspense>
             <FloatingThemeToggle />
             <BackToTop />
-            <MusicPlayer />
             <Terminal />
             <EasterEgg />
             <DeploymentInfo />
